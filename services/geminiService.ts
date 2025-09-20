@@ -1,35 +1,27 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { GameLevel } from '../types';
-import { LEVEL_PROMPTS } from '../constants';
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 export const fetchTypingChallenge = async (level: GameLevel): Promise<string[]> => {
   try {
-    const prompt = LEVEL_PROMPTS[level];
-    
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.STRING,
-          },
-        },
+    const response = await fetch('/api/generate-challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ level }),
     });
 
-    const jsonString = response.text.trim();
-    const result = JSON.parse(jsonString);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+    }
+
+    const result = await response.json();
 
     if (Array.isArray(result) && result.every(item => typeof item === 'string')) {
       return result;
     } else {
-      console.error("AI response is not a string array:", result);
-      return ["An error occurred while generating words."];
+      console.error("API response is not a string array:", result);
+      throw new Error("Invalid data format from server.");
     }
   } catch (error) {
     console.error("Error fetching typing challenge:", error);
